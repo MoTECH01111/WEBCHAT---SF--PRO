@@ -3,7 +3,7 @@
 
 # TO RUN THIS ON YOUR PC
 
-You will need to use to pip to install
+# You will need to use to pip to install
 
-# pip install Flask Flask-SQLAlchemy Flask-Bcrypt pycryptodome cryptography
-# dont forget to create a VENV SO IT WILL RUN PERFECTLY FOR YOU
+pip install Flask Flask-SQLAlchemy Flask-Bcrypt pycryptodome cryptography
+dont forget to create a VENV SO IT WILL RUN PERFECTLY FOR YOU
