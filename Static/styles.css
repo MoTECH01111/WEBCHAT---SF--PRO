@@ -60,18 +60,19 @@ body {
     color: #660066;
 }
 
-/* Chat Area Styling */
+/* Chat Area Styling 
 .chat-area {
-    margin-left: 20%; /* Align chat area next to sidebar */
-    width: 80%; /* Take up remaining space beside sidebar */
-    padding: 20px;
+    margin-left: 20%; Align chat area next to sidebar */
+   /* width: 80%; /* Take up remaining space beside sidebar */
+    /* padding: 20px;
     display: flex;
     flex-direction: column;
     background-color: #ffffff;
     border-radius: 15px;
     box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
     height: 100vh; /* Make chat area full height */
-}
+ /* }
+*/
 
 .card-title {
     color: #800080;

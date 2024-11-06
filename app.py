@@ -3,9 +3,13 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from cryptography.fernet import Fernet
 import sqlite3
 import os
+from flask_socketio import SocketIO, emit, join_room, leave_room
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# Initialize Flask-SocketIO
+socketio = SocketIO(app)
 
 # Generate a Fernet encryption key
 encryption_key = Fernet.generate_key()
@@ -42,6 +46,10 @@ def home():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # Check if the user is already logged in, if so, redirect to the chat page
+    if 'username' in session:
+        return redirect(url_for('chat'))
+    
     if request.method == 'POST':
         username = request.form['username']
         password = generate_password_hash(request.form['password'])
@@ -60,6 +68,10 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Check if the user is already logged in, if so, redirect to the chat page
+    if 'username' in session:
+        return redirect(url_for('chat'))
+    
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -78,27 +90,55 @@ def login():
     
     return render_template('login.html')
 
+
 @app.route('/chat', methods=['GET', 'POST'])
 def chat():
-    #if 'username' not in session:
-        #return redirect(url_for('login'))
-    
     if request.method == 'POST':
         sender = session['username']
         receiver = request.json['receiver']
         message = request.json['message']
         encrypted_message = encrypt_message(message, sender)
 
+        # Insert encrypted message into the database
         conn = sqlite3.connect("chat.db")
         cursor = conn.cursor()
         cursor.execute("INSERT INTO messages (sender, receiver, message) VALUES (?, ?, ?)",
                        (sender, receiver, encrypted_message))
         conn.commit()
         conn.close()
-        
-        return jsonify({"reply": "Message sent successfully!"})
+
+        # Emit message to the receiver using SocketIO
+        emit('new_message', {'sender': sender, 'message': decrypt_message(encrypted_message)}, room=receiver)
+        return jsonify({"sender": sender, "message": decrypt_message(encrypted_message)})
     
     return render_template('chat.html')
+
+# SocketIO event handler to send messages to specific users
+@socketio.on('join')
+def on_join(username):
+    session['username'] = username
+    # Join the user's specific room (based on username)
+    join_room(username)
+    # Broadcast a message when a user joins
+    emit('user_joined', {'message': f'{username} has entered the chat.'}, broadcast=True)
+
+@socketio.on('send_message')
+def handle_message(data):
+    sender = session['username']
+    receiver = data['receiver']
+    message = data['message']
+    encrypted_message = encrypt_message(message, sender)
+
+    # Insert encrypted message into the database
+    conn = sqlite3.connect("chat.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO messages (sender, receiver, message) VALUES (?, ?, ?)",
+                   (sender, receiver, encrypted_message))
+    conn.commit()
+    conn.close()
+
+    # Emit encrypted message to receiver
+    emit('new_message', {'sender': sender, 'message': decrypt_message(encrypted_message)}, room=receiver)
 
 @app.route('/fetch_messages', methods=['GET'])
 def fetch_messages():
@@ -117,29 +157,12 @@ def fetch_messages():
     
     return jsonify(decrypted_messages)
 
-@app.route('/logout')
+@app.route('/logout', methods=['POST'])
 def logout():
-    session.pop('username', None)
-    return redirect(url_for('login'))
+    session.pop('username', None)  # Remove the username from session to log out
+    return redirect(url_for('login'))  # Redirect to login page after logging out
 
-@app.route('/save_password', methods=['POST'])
-def save_password():
-    if 'username' not in session:
-        return redirect(url_for('login'))
-    
-    username = session['username']
-    password_manager_entry = request.form['password_manager']
-    encrypted_entry = encrypt_message(password_manager_entry, username)
-
-    conn = sqlite3.connect("chat.db")
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO messages (sender, receiver, message) VALUES (?, ?, ?)",
-                   (username, username, encrypted_entry))
-    conn.commit()
-    conn.close()
-    
-    return "Password saved to manager successfully."
 
 if __name__ == "__main__":
     init_db()
-    app.run(debug=True)
+    socketio.run(app, debug=True)
