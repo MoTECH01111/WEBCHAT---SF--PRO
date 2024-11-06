@@ -80,8 +80,8 @@ def login():
 
 @app.route('/chat', methods=['GET', 'POST'])
 def chat():
-    if 'username' not in session:
-        return redirect(url_for('login'))
+    #if 'username' not in session:
+        #return redirect(url_for('login'))
     
     if request.method == 'POST':
         sender = session['username']
