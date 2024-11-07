@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -9,16 +9,54 @@
 </head>
 <body class="gradient-bg">
     <div class="container full-height-chatbox">
+   
         <!-- Sidebar -->
         <div class="sidebar">
             <h5 class="sidebar-title text-center text-light mb-4">Contacts</h5>
             <ul class="contacts-list">
+                <!-- Active users list from backend -->
                 {% for user in active_users %}
                     <li><a href="#">{{ user }}</a></li>
                 {% endfor %}
             </ul>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            <br>
+            
+            <!-- Logout Link at the Bottom -->
+            <div class="mt-auto">
+                <a href="/logout" class="logout-link">Logout</a>
+            </div>
         </div>
-        
+
         <!-- Chat Area -->
         <div class="chat-area">
             <h2 class="text-center text-light mb-4">Welcome to YOUWEBCHAT</h2>
@@ -53,29 +91,96 @@
 
     <script>
         var socket = io.connect('http://' + document.domain + ':' + location.port);
-
-        // Join the chat
+    
+        // Join the chat room for the user
         socket.emit('join', '{{ session["username"] }}');
+    
+        // Auto-scroll to the latest message
+        function scrollToLatestMessage() {
+            const chatWindow = document.getElementById("chat-window");
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    
+        // Play notification sound when a new message is received
+        function playNotificationSound() {
+            var audio = new Audio('/static/notification.mp3'); // Your notification sound file
+            audio.play();
+        }
 
-        // Listen for new messages
-        socket.on('new_message', function(data) {
-            console.log('New message:', data);
+        function appendMessage(sender, receiver, message, isUserMessage = false) {
             const chatWindow = document.getElementById("chat-window");
             const messageElement = document.createElement("div");
-            messageElement.classList.add("message");
-            messageElement.innerHTML = `<strong>${data.sender}:</strong> ${data.message}`;
-            chatWindow.appendChild(messageElement);
-        });
 
-        // Send a message
+            const timestamp = new Date().toLocaleTimeString(); // Add a timestamp
+
+            // Add class to differentiate between sender and receiver
+            if (isUserMessage) {
+                messageElement.classList.add("message", "sender");
+                messageElement.innerHTML = `<strong>You</strong>: ${message} <span class="timestamp">${timestamp}</span>`;
+            } else {
+                messageElement.classList.add("message", "receiver");
+                messageElement.innerHTML = `<strong>${sender}</strong>: ${message} <span class="timestamp">${timestamp}</span>`;
+            }
+
+            chatWindow.appendChild(messageElement);
+            scrollToLatestMessage();
+        }
+    
+        // Listen for new messages and append them to the chat window
+        socket.on('new_message', function(data) {
+            console.log('New message:', data);
+            appendMessage(data.sender, data.receiver, data.message);
+            playNotificationSound();  // Play notification sound
+        });
+    
+        // Listen for updates to the active user list and update the sidebar
+        socket.on('update_user_list', function(data) {
+            console.log('Updating user list:', data);
+            const contactsList = document.querySelector(".contacts-list");
+            contactsList.innerHTML = ""; // Clear the current list
+    
+            // Populate the updated user list
+            data.forEach(function(user) {
+                const userItem = document.createElement("li");
+                const userLink = document.createElement("a");
+                userLink.href = "#";
+                userLink.textContent = user;
+                userItem.appendChild(userLink);
+                contactsList.appendChild(userItem);
+            });
+        });
+    
+        // Send a message and clear the input field
         document.getElementById("chat-form").addEventListener("submit", function(event) {
             event.preventDefault();
-
-            const recipientUsername = document.getElementById("username").value;
-            const message = document.getElementById("message-input").value;
-
+    
+            const recipientUsername = document.getElementById("username").value.trim();
+            const message = document.getElementById("message-input").value.trim();
+    
+            // Validate input
+            if (!recipientUsername) {
+                alert("Please enter a recipient's username before sending a message.");
+                return;
+            }
+    
+            if (!message) {
+                alert("Please enter a message.");
+                return;
+            }
+    
             // Send the message via Socket.IO
-            socket.emit('send_message', {receiver: recipientUsername, message: message});
+            socket.emit('send_message', { receiver: recipientUsername, message: message });
+    
+            // Append the user's own message to the chat window
+            appendMessage('You', recipientUsername, message, true);
+    
+            // Clear the input field
+            document.getElementById("message-input").value = "";
+        });
+    
+        // Display a notification if a new message is received for the current user
+        socket.on('notification', function(data) {
+            alert(`New message from ${data.sender}: ${data.message}`);
         });
     </script>
 </body>

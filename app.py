@@ -10,6 +10,7 @@ app.secret_key = os.urandom(24)
 
 # Initialize Flask-SocketIO
 socketio = SocketIO(app)
+active_users = set()
 
 # Generate a Fernet encryption key
 encryption_key = Fernet.generate_key()
@@ -115,12 +116,24 @@ def chat():
 
 # SocketIO event handler to send messages to specific users
 @socketio.on('join')
-def on_join(username):
+def handle_join(username):
+    # Add the user to the active users set
+    active_users.add(username)
     session['username'] = username
-    # Join the user's specific room (based on username)
-    join_room(username)
-    # Broadcast a message when a user joins
-    emit('user_joined', {'message': f'{username} has entered the chat.'}, broadcast=True)
+    join_room(username)  # This ensures each user joins their unique room
+
+    # Broadcast the updated list of active users to all clients
+    emit('update_user_list', list(active_users), broadcast=True)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    # Retrieve the username from the session or a custom method you use
+    username = session.get('username')
+    if username and username in active_users:
+        active_users.remove(username)
+        # Broadcast the updated list after user leaves
+        emit('update_user_list', list(active_users), broadcast=True)
+
 
 @socketio.on('send_message')
 def handle_message(data):
@@ -137,8 +150,11 @@ def handle_message(data):
     conn.commit()
     conn.close()
 
-    # Emit encrypted message to receiver
+    # Emit encrypted message to receiver’s room
     emit('new_message', {'sender': sender, 'message': decrypt_message(encrypted_message)}, room=receiver)
+
+    # Notify the receiver about the new message
+    emit('notification', {'sender': sender, 'message': 'You have a new message'}, room=receiver)
 
 @app.route('/fetch_messages', methods=['GET'])
 def fetch_messages():
@@ -157,7 +173,7 @@ def fetch_messages():
     
     return jsonify(decrypted_messages)
 
-@app.route('/logout', methods=['POST'])
+@app.route('/logout', methods=['GET'])
 def logout():
     session.pop('username', None)  # Remove the username from session to log out
     return redirect(url_for('login'))  # Redirect to login page after logging out

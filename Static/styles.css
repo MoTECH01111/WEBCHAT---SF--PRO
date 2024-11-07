@@ -36,6 +36,17 @@ body {
     overflow-y: auto;
 }
 
+.logout-link {
+    text-align: left;
+    display: block;
+    padding: 10px;
+    background-color: #ffffff;
+    color: #800080;
+    border-radius: 5px;
+    text-decoration: none;
+}
+
+
 .sidebar-title {
     font-size: 1.5rem;
     color: #800080;
@@ -60,19 +71,6 @@ body {
     color: #660066;
 }
 
-/* Chat Area Styling 
-.chat-area {
-    margin-left: 20%; Align chat area next to sidebar */
-   /* width: 80%; /* Take up remaining space beside sidebar */
-    /* padding: 20px;
-    display: flex;
-    flex-direction: column;
-    background-color: #ffffff;
-    border-radius: 15px;
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-    height: 100vh; /* Make chat area full height */
- /* }
-*/
 
 .card-title {
     color: #800080;
@@ -152,4 +150,41 @@ body {
     font-size: 1.1rem;
     padding: 10px;
     border-radius: 5px 0 0 5px;
+}
+
+
+.message.sender {
+    align-self: flex-start; /* Aligns sender's message to the left */
+    background-color: #800080; /* Same color as the button */
+    padding: 10px 20px;
+    border-radius: 30px;
+    max-width: 60%; /* Limits message width */
+    word-wrap: break-word;
+    font-size: 14px;
+    position: relative;
+    margin: 5px 0;
+    color: white; /* Text color for sender's messages */
+}
+
+/* Align messages to the right for the receiver */
+.message.receiver {
+    align-self: flex-end; /* Aligns receiver's message to the right */
+    background-color: #660066; /* Darker shade for receiver */
+    padding: 10px 20px;
+    border-radius: 30px;
+    max-width: 60%; /* Limits message width */
+    word-wrap: break-word;
+    font-size: 14px;
+    color: white; /* Text color for receiver's messages */
+    position: relative;
+    margin: 5px 0;
+}
+
+/* Add a timestamp on the top right of the message bubble */
+.timestamp {
+    font-size: 10px;
+    color: #ddd; /* Light color for timestamp */
+    position: absolute;
+    bottom: -15px;
+    right: 10px;
 }
