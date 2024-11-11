@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 import sqlite3
 import os
@@ -140,6 +141,8 @@ def handle_message(data):
     sender = session['username']
     receiver = data['receiver']
     message = data['message']
+    mediaUrl = data.get('mediaUrl')
+
     encrypted_message = encrypt_message(message, sender)
 
     # Insert encrypted message into the database
@@ -151,10 +154,17 @@ def handle_message(data):
     conn.close()
 
     # Emit encrypted message to receiver’s room
-    emit('new_message', {'sender': sender, 'message': decrypt_message(encrypted_message)}, room=receiver)
+    emit('new_message', {
+        'sender': sender,
+        'message': decrypt_message(encrypted_message), 
+        'mediaUrl': mediaUrl},
+        room=receiver)
 
     # Notify the receiver about the new message
-    emit('notification', {'sender': sender, 'message': 'You have a new message'}, room=receiver)
+    emit('notification', {
+        'sender': sender, 
+        'message': 'You have a new message'}, 
+        room=receiver)
 
 @app.route('/fetch_messages', methods=['GET'])
 def fetch_messages():
@@ -177,6 +187,35 @@ def fetch_messages():
 def logout():
     session.pop('username', None)  # Remove the username from session to log out
     return redirect(url_for('login'))  # Redirect to login page after logging out
+
+# erins code -----
+
+allowedExtensions = {'png', 'jpg', 'jpeg', 'gif'}
+uploadFolder = 'static/uploads'
+app.config['uploadFolder'] = uploadFolder
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowedExtensions
+
+@app.route('/upload', methods=['POST'])
+def uploadFile():
+    if 'media' not in request.files:
+        return jsonify({'error': 'no file part'}), 400
+    
+    file = request.files['media']
+
+    if file.filename == '':
+        return jsonify({'error': 'no selected file'}), 400
+    
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        filePath = os.path.join(app.config['uploadFolder'], filename)
+        file.save(filePath)
+
+        mediaUrl = url_for('static', filename=f'uploads/{filename}')
+        return jsonify({'url': mediaUrl}), 200
+    
+    return jsonify({'error': 'invalid file type'}), 400
 
 
 if __name__ == "__main__":
