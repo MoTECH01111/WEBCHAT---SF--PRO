@@ -7,6 +7,14 @@ import os
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
+<<<<<<< Updated upstream
+=======
+# Initialize Flask-SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+active_users = set()
+
+>>>>>>> Stashed changes
 # Generate a Fernet encryption key
 encryption_key = Fernet.generate_key()
 cipher_suite = Fernet(encryption_key)
@@ -142,4 +150,8 @@ def save_password():
 
 if __name__ == "__main__":
     init_db()
+<<<<<<< Updated upstream
     app.run(debug=True)
+=======
+    socketio.run(app, host='0.0.0.0', port=5001, debug=True)
+>>>>>>> Stashed changes
