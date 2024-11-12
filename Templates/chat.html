@@ -3,30 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> YOUCHAT ROOM</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>YOUWEBCHAT ROOM</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
-<body>
-    <div class="container custom-mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-body custom-color2">
-                        <h5 class="card-title text-center mb-4 custom-color2 display-6 fw-normal">Welcome to YOUWEBCHAT</h5>
-                        <div id="chat-window" class="chat-window">
-                            <!-- Messages will appear here -->
-                        </div>
-                        <form id="chat-form" class="mt-3">
-                            <div class="input-group">
-                                <input type="text" id="message-input" class="form-control" placeholder="Type your message...">
-                                <button class="btn btn-primary" type="submit">Send</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+<body class="gradient-bg">
+    <div class="container full-height-chatbox">
+   
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h5 class="sidebar-title text-center text-light mb-4">Contacts</h5>
+            <ul class="contacts-list">
+                <!-- Active users list from backend -->
+                {% for user in active_users %}
+                    <li><a href="#">{{ user }}</a></li>
+                {% endfor %}
+            </ul>
+            
+            <!-- Logout Link at the Bottom -->
+            <div class="mt-auto">
+                <a href="/logout" class="logout-link">Logout</a>
             </div>
         </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <h2 class="text-center text-light mb-4">Welcome to YOUWEBCHAT</h2>
+            <h5 class="card-title text-center mb-4 custom-color2 display-6 fw-normal">Chat Room</h5>
+
+            <!-- Recipient Username Form -->
+            <form id="chat-recipient-form" class="mb-4">
+                <label for="username" class="form-label">Recipient's Username</label>
+                <input type="text" id="username" class="form-control" placeholder="Enter recipient's username" required>
+            </form>
+
+            <div id="chat-window" class="chat-window">
+                {% for message in messages %}
+                    <div class="message">
+                        <strong>{{ message.sender }}:</strong> {{ message.message }}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Chat Input Form -->
+            <form id="chat-form" class="mt-3">
+                <div class="input-group full-width-input-group">
+                    <input type="text" id="message-input" class="form-control" placeholder="Type your message..." required>
+                    <input type="file" id="media-input" class="form-control" accept="image/*">
+                    <button class="btn btn-primary" type="submit">Send</button>
+                </div>
+            </form>
+        </div>
     </div>
+
+    <!-- Include Socket.IO client-side library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.3/socket.io.min.js"></script>
+
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+    
+        // Join the chat room for the user
+        socket.emit('join', '{{ session["username"] }}');
+    
+        // Auto-scroll to the latest message
+        function scrollToLatestMessage() {
+            const chatWindow = document.getElementById("chat-window");
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+    
+        // Play notification sound when a new message is received
+        function playNotificationSound() {
+            var audio = new Audio('/static/notification.mp3'); // Your notification sound file
+            audio.play();
+        }
+
+        function appendMessage(sender, receiver, message, isUserMessage = false, mediaUrl = null) {
+            const chatWindow = document.getElementById("chat-window");
+            const messageElement = document.createElement("div");
+
+            const timestamp = new Date().toLocaleTimeString(); // Add a timestamp
+
+            // Add class to differentiate between sender and receiver
+            if (isUserMessage) {
+                messageElement.classList.add("message", "sender");
+                messageElement.innerHTML = `<strong>You</strong>: ${message} <span class="timestamp">${timestamp}</span>`;
+            } else {
+                messageElement.classList.add("message", "receiver");
+                messageElement.innerHTML = `<strong>${sender}</strong>: ${message} <span class="timestamp">${timestamp}</span>`;
+            }
+
+            if(mediaUrl) {
+                const mediaElement = document.createElement("img");
+                mediaElement.src = mediaUrl;
+                mediaElement.classList.add("media");
+                messageElement.appendChild(mediaElement);
+            }
+
+            chatWindow.appendChild(messageElement);
+            scrollToLatestMessage();
+        }
+    
+        // Listen for new messages and append them to the chat window
+        socket.on('new_message', function(data) {
+            console.log('New message:', data);
+            appendMessage(data.sender, data.receiver, data.message, false, data.mediaUrl);
+            playNotificationSound();  // Play notification sound
+        });
+    
+        // Listen for updates to the active user list and update the sidebar
+        socket.on('update_user_list', function(data) {
+            console.log('Updating user list:', data);
+            const contactsList = document.querySelector(".contacts-list");
+            contactsList.innerHTML = ""; // Clear the current list
+    
+            // Populate the updated user list
+            data.forEach(function(user) {
+                const userItem = document.createElement("li");
+                const userLink = document.createElement("a");
+                userLink.href = "#";
+                userLink.textContent = user;
+                userItem.appendChild(userLink);
+                contactsList.appendChild(userItem);
+            });
+        });
+    
+        // Send a message and clear the input field
+        document.getElementById("chat-form").addEventListener("submit", function(event) {
+            event.preventDefault();
+    
+            const recipientUsername = document.getElementById("username").value.trim();
+            const message = document.getElementById("message-input").value.trim();
+            const mediaInput = document.getElementById("media-input").files[0];
+    
+            // Validate input
+            if (!recipientUsername) {
+                alert("Please enter a recipient's username before sending a message.");
+                return;
+            }
+    
+            if (!message && !mediaInput) {
+                alert("Please enter a message.");
+                return;
+            }
+
+            if(mediaInput) {
+                const formData = new FormData();
+                formData.append('media', mediaInput);
+
+                fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                })
+
+                .then(response => response.json())
+                .then(data => {
+                    if(data.url){
+                        socket.emit('send_message', {
+                             receiver: recipientUsername, 
+                             message: message, 
+                             mediaUrl: data.url 
+                            });
+
+                        appendMessage('You', recipientUsername, message, true, data.url);
+
+                        document.getElementById("message-input").value = "";
+                        document.getElementById("media-input").value = "";
+                    } else {
+                        alert("Failed to upload media. Please try again.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert("Failed to upload media. Please try again.");
+                });
+            } else {
+                socket.emit('send_message', { receiver: recipientUsername, message: message });
+
+                appendMessage('You', recipientUsername, message, true);
+
+                document.getElementById("message-input").value = "";
+            }
+        });
+    
+        // Display a notification if a new message is received for the current user
+        socket.on('notification', function(data) {
+            alert(`New message from ${data.sender}: ${data.message}`);
+        });
+    </script>
 </body>
 </html>
