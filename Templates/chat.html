@@ -23,6 +23,40 @@
                                 <button class="btn btn-primary" type="submit">Send</button>
                             </div>
                         </form>
+<body class="gradient-bg chat-page">
+    <div class="container full-height-chatbox">
+   
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <h5 class="sidebar-title text-center text-light mb-4">Contacts</h5>
+            <ul class="contacts-list">
+                <!-- Active users list from backend -->
+                {% for user in active_users %}
+                    <li><a href="#">{{ user }}</a></li>
+                {% endfor %}
+            </ul>
+            
+            <!-- Logout Link at the Bottom -->
+            <div class="mt-auto">
+                <a href="/logout" class="logout-link">Logout</a>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <h2 class="text-center text-light mb-4">Welcome to YOUWEBCHAT</h2>
+            <h5 class="card-title text-center mb-4 custom-color2 display-6 fw-normal">Chat Room</h5>
+
+            <!-- Recipient Username Form -->
+            <form id="chat-recipient-form" class="mb-4">
+                <label for="username" class="form-label">Recipient's Username</label>
+                <input type="text" id="username" class="form-control" placeholder="Enter recipient's username" required>
+            </form>
+
+            <div id="chat-window" class="chat-window">
+                {% for message in messages %}
+                    <div class="message">
+                        <strong>{{ message.sender }}:</strong> {{ message.message }}
                     </div>
                 </div>
             </div>
