@@ -1,7 +1,8 @@
 /* Import Orbitron font from Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron&display=swap');
 
-/* Global and background styling */
+/* global styles all pages*/
+
 body {
     font-family: 'Orbitron', sans-serif;
     margin: 0;
@@ -16,182 +17,293 @@ body {
     justify-content: center;
 }
 
-/* Full height layout */
-.full-height-chatbox {
-    display: flex;
-    width: 100%;
-    height: 100vh;
-    padding: 20px;
-    gap: 40px;
+/*chat styling*/
+
+/* override the background for the chat page because it keeps covering bg image */
+body.chat-page.gradient-bg {
+    background: url('images/windowsxp.png') no-repeat center center fixed;
+    background-size: cover;
 }
 
-/* Sidebar Styling */
-.sidebar {
+/* chat page styles */
+body.chat-page .main-wrapper {
+    max-width: 1400px;
+    max-height: 90vh;
+    margin: 40px auto;
     display: flex;
     flex-direction: column;
-    background-color: #fff;
-    width: 20%; /* Adjusted to make more space for chat area */
+    flex: 1;
+}
+
+body.chat-page .container {
+    flex: 1;
+    display: flex;
+    height: 100%;
+    align-items: stretch;
+}
+
+/* sidebar styling */
+body.chat-page .sidebar {
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(203, 181, 181, 0.94);
+    border: 4px solid #FFFFFF;
+    width: 15%;
     padding: 5px;
     border-radius: 10px;
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-    height: 100vh;
-    overflow-y: hidden;
+    overflow-y: auto;
+    flex-grow: 0;
+    margin-left: 20px;
 }
 
-.logout-link {
-    text-align: left;
-    display: block;
-    padding: 10px;
-    background-color: #ffffff;
-    color: #800080;
-    border-radius: 5px;
-    text-decoration: none;
-}
-
-.logout-link:hover {
-    background-color: #f8f9fa;
-}
-
-.sidebar-title {
+body.chat-page .sidebar-title {
     font-size: 1.5rem;
-    color: #800080;
+    color: #FFFFFF;
     text-align: center;
 }
 
-.contacts-list {
-    flex-grow: 1;
+body.chat-page .contacts-list {
+    flex: 1;
     overflow-y: auto;
     list-style: none;
     padding: 0;
     margin-bottom: 10px;
 }
 
-.contacts-list li {
+body.chat-page .contacts-list li {
     margin: 10px 0;
 }
 
-.contacts-list a {
+body.chat-page .contacts-list a {
     text-decoration: none;
-    color: #800080;
+    color: #FFFFFF;
 }
 
-.contacts-list a:hover {
-    color: #660066;
+body.chat-page .contacts-list a:hover {
+    color: #DDDDDD;
 }
 
-
-.card-title {
-    color: #800080;
+body.chat-page .logout-link {
+    text-align: left;
+    display: block;
+    padding: 10px;
+    background-color: rgba(203, 181, 181, 0.94);
+    color: #FFFFFF;
+    border: none;
+    border-top: 1px solid #FFFFFF;
+    text-decoration: none;
 }
 
-/* Chat Input Form */
-/* .input-group {
-    display: flex;
+body.chat-page .logout-link:hover {
+    background-color: rgba(203, 181, 181, 0.94);
 }
 
-.btn-primary {
-    background-color: #800080;
-    border-color: #800080;
-    color: #ffffff;
-}
-
-.btn-primary:hover {
-    background-color: #660066;
-    border-color: #660066;
-} */
-
-/* Chat Area Styling */
-.chat-area {
+/*chat area styling */
+body.chat-page .chat-area {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background-color: #ffffff;
+    background-color: rgba(203, 181, 181, 0.94);
+    border: 4px solid #FFFFFF;
     border-radius: 15px;
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
     padding: 20px;
+    margin-left: 20px;
+    margin-right: 20px;
+    flex-grow: 1;
 }
 
-/* Chat Window Styling */
-.chat-window {
+body.chat-page .chat-area h2,
+body.chat-page .chat-area h5,
+body.chat-page #chat-recipient-form {
+    flex-shrink: 0;
+    color: #FFFFFF;
+}
+
+body.chat-page #chat-recipient-form {
+    margin-bottom: 15px;
+}
+
+body.chat-page #chat-window {
     flex: 1;
-    background-color: #fff;
+    min-height: 300px;
+    background-color: #FFFFFF;
     border-radius: 8px;
     padding: 10px;
     margin-bottom: 10px;
     overflow-y: auto;
 }
 
-/* Full-width input group for chat form */
-.full-width-input-group {
+body.chat-page .full-width-input-group {
+    flex-shrink: 0;
     display: flex;
-    width: 100%;
+    gap: 10px;
     padding: 10px;
-    background-color: #f8f9fa;
-    border-top: 1px solid #ddd;
-    border-radius: 0 0 15px 15px; /* Matches the chat area rounded corners */
+    background-color: rgba(203, 181, 181, 0.94);
+    border-top: 1px solid #FFFFFF;
+    border-radius: 0 0 15px 15px;
 }
 
-#message-input {
-    flex: 1; /* Takes up all available space except the button */
-    font-size: 1.1rem;
+body.chat-page #username,
+body.chat-page #message-input,
+body.chat-page #media-input {
+    background-color: #FFFFFF;
+    color: rgba(203, 181, 181, 0.94);
+    border: 1px solid #FFFFFF;
     padding: 10px;
-    border-radius: 5px 0 0 5px;
+    border-radius: 5px;
 }
 
-.btn-primary {
-    font-size: 1.1rem;
-    padding: 10px 20px;
-    border-radius: 0 5px 5px 0;
-    background-color: #800080;
-    border: none;
-    color: #ffffff;
+body.chat-page #username::placeholder,
+body.chat-page #message-input::placeholder {
+    color: #AAAAAA;
 }
 
-.btn-primary:hover {
-    background-color: #660066;
+body.chat-page #message-input {
+    flex: 1;
+    height: 40px;
 }
 
-
-#username {
-    flex: 1; /* Takes up all available space except the button */
-    font-size: 1.1rem;
-    padding: 10px;
-    border-radius: 5px 0 0 5px;
+body.chat-page #media-input,
+body.chat-page .btn-primary {
+    height: 40px;
 }
 
+body.chat-page .btn-primary {
+    background-color: #FFFFFF;
+    color:  rgba(203, 181, 181, 0.94);
+    border: 2px solid #FFFFFF;
+    padding: 0 20px;
+    border-radius: 5px;
+}
 
-.message.sender {
-    align-self: flex-start; /* Aligns sender's message to the left */
-    background-color: #800080; /* Same color as the button */
+body.chat-page .btn-primary:hover {
+    background-color: #DDDDDD;
+}
+
+/*msg styling*/
+body.chat-page .message.sender,
+body.chat-page .message.receiver {
     padding: 10px 20px;
     border-radius: 30px;
-    max-width: 60%; /* Limits message width */
+    max-width: 60%;
     word-wrap: break-word;
     font-size: 14px;
     position: relative;
     margin: 5px 0;
-    color: white; /* Text color for sender's messages */
 }
 
-/* Align messages to the right for the receiver */
-.message.receiver {
-    align-self: flex-end; /* Aligns receiver's message to the right */
-    background-color: #660066; /* Darker shade for receiver */
-    padding: 10px 20px;
-    border-radius: 30px;
-    max-width: 60%; /* Limits message width */
-    word-wrap: break-word;
-    font-size: 14px;
-    color: white; /* Text color for receiver's messages */
-    position: relative;
-    margin: 5px 0;
+body.chat-page .message.sender {
+    align-self: flex-start;
+    background-color: #FFFFFF;
+    color: #800080;
 }
 
-/* Add a timestamp on the top right of the message bubble */
-.timestamp {
+body.chat-page .message.receiver {
+    align-self: flex-end;
+    background-color: #F0F0F0;
+    color: #800080;
+}
+
+body.chat-page .timestamp {
     font-size: 10px;
-    color: #ddd; /* Light color for timestamp */
+    color: #AAAAAA;
     position: absolute;
     bottom: -15px;
     right: 10px;
+}
+
+
+/* login and registers styles */
+
+
+/* COMMON STYLES for login and register, interdependant */
+.login-page .container,
+.register-page .container {
+    max-width: 800px; /*width value for login and signup panels*/
+    margin: 0 auto;
+}
+
+.login-page .custom-card,
+.register-page .custom-card {
+    border-radius: 15px;
+    background-color: rgba(128, 0, 128, 0.9);
+    border: 4px solid #FFFFFF;
+    padding: 20px; /* increased padding */
+}
+
+.login-page .card-title,
+.register-page .card-title {
+    color: #FFFFFF;
+    text-align: center;
+    font-size: 2rem; /* increased font size */
+}
+
+.login-page .form-label,
+.register-page .form-label {
+    color: #FFFFFF;
+}
+
+.login-page .form-control,
+.register-page .form-control {
+    background-color: #FFFFFF;
+    color: #800080;
+    border: 1px solid #FFFFFF;
+    padding: 12px; /* increased padding */
+    border-radius: 5px;
+    font-size: 1rem; /* increased font size */
+}
+
+.login-page .btn,
+.register-page .btn {
+    background-color: #FFFFFF;
+    color: #800080;
+    border: 2px solid #FFFFFF;
+    padding: 12px; /* increased padding */
+    border-radius: 5px;
+    width: 100%;
+    font-size: 1.1rem; /* increased font size */
+}
+
+.login-page .btn:hover,
+.register-page .btn:hover {
+    background-color: #DDDDDD;
+}
+
+.login-page .text-decoration-none,
+.register-page .text-decoration-none {
+    color: #FFFFFF;
+}
+
+.login-page .text-decoration-none:hover,
+.register-page .text-decoration-none:hover {
+    color: #DDDDDD;
+}
+
+/* specific style for login page */
+.login-page h2 {
+    color: #FFFFFF;
+    margin-bottom: 20px;
+    font-size: 2rem;
+}
+
+/* specific style for register page */
+.register-page h2 {
+    color: #FFFFFF;
+    margin-bottom: 20px;
+    font-size: 2rem;
+}
+
+.login-page .custom-mt-5,
+.register-page .custom-mt-5 {
+    margin-top: 60px; /* increased top margin */
+}
+
+/* adjust the gradient bg for login and register */
+.login-page .gradient-bg,
+.register-page .gradient-bg {
+    background: linear-gradient(135deg, #800080, #ffffff);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
