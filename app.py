@@ -25,7 +25,7 @@ app.config.update(
 
 # Initialize the CSRF protection done by Erin
 csrf = CSRFProtect(app)
-socketio = SocketIO(app,cors_allowed_origin="*",async_mode='eventlet')
+socketio = SocketIO(app,cors_allowed_origin="*",async_mode='eventlet') #Morris O code is used to allow crossharing resource over a network
 active_users = set()
 
 #To generate the Fernet encryption key - Morris O
