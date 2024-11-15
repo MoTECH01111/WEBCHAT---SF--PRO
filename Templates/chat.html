@@ -62,10 +62,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
 
     <script>
-        var socket = io.connect('http://' + document.domain + ':' + location.port);
+        var socket = io.connect('192.168.0.25:5050');
     
         // Join the chat room for the user
-        socket.emit('join', '{{ session["username"] }}');
+        // Assuming socket.io connection is already established
+        socket.emit('join');
+
     
         // Auto-scroll to the latest message
         function scrollToLatestMessage() {
@@ -151,7 +153,11 @@
             if(mediaInput) {
                 const formData = new FormData();
                 formData.append('media', mediaInput);
+<<<<<<< Updated upstream
                 formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+=======
+                formData.append('csrf_token',document.querySelector('input[name="csrf_token"]').value);
+>>>>>>> Stashed changes
 
                 fetch("/upload", {
                     method: "POST",
