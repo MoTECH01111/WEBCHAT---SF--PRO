@@ -14,6 +14,7 @@ from flask_wtf.csrf import CSRFProtect, CSRFError, validate_csrf
 
 app = Flask(__name__)
 
+# Configuration for the app
 app.config.update(
     SECRET_KEY = os.urandom(24),
     #constants for account lockout mechanism (Josh)
@@ -24,6 +25,7 @@ app.config.update(
     UPLOAD_FOLDER = 'static/uploads',
     )   
 
+# Initialize the CSRF protection
 csrf = CSRFProtect(app)
 socketio = SocketIO(app)
 active_users = set()
@@ -447,23 +449,29 @@ def logout():
     return redirect(url_for('login'))  # Redirect to login page after logging out
 
 #erins code -----
+# Limit file types that can be uploaded
 allowedExtensions = {'png', 'jpg', 'jpeg', 'gif'}
+# Set the upload folder
 uploadFolder = 'static/uploads'
 app.config['uploadFolder'] = uploadFolder
 
+# Create the upload folder if it does not exist
 if not os.path.exists(uploadFolder):
     os.makedirs(uploadFolder)
 
+# Check if the file is allowed
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowedExtensions
 
 @app.route('/upload', methods=['POST'])
 def uploadFile():
+    # Tries to validate the CSRF token
     try:
         validate_csrf(request.form.get('csrf_token'))
     except Exception as e:
         return jsonify({"error": "Invalid CSRF token"}), 400
     
+    # Checks if the post request has the file part
     if 'media' not in request.files:
         return jsonify({'error': 'no file part'}), 400
 
@@ -472,16 +480,19 @@ def uploadFile():
     if file.filename == '':
         return jsonify({'error': 'no selected file'}), 400
 
+    # Checks if the file is within the allowed file types
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         filePath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filePath)
 
+        # Saves the file to the uploads folder
         mediaUrl = url_for('static', filename=f'uploads/{filename}')
         return jsonify({'url': mediaUrl}), 200
 
     return jsonify({'error': 'invalid file type'}), 400
 
+# Handles CSRF token errors
 @app.errorhandler(CSRFError)
 def handle_csrf_error(e):
     return jsonify({"error": "CSRF token missing or invalid"}), 400
