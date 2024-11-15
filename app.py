@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from hashlib import sha256
 import sqlite3
 import os
+import re
 from flask import Flask, session, redirect, url_for, request, render_template, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
@@ -18,6 +19,16 @@ active_users = set()
 #To generate the Fernet encryption key
 encryption_key = Fernet.generate_key()
 cipher_suite = Fernet(encryption_key)
+
+#Email and username validation done by Erin -- Ensures that the email and username are valid and secure
+#To validate the email and username
+def is_valid_email(email):
+    #Accepts basic email format
+    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", email))
+
+def is_valid_username(password):
+    #Accepts numbers, letters and underscores between 3 and 20 characters
+    return bool(re.match(r"^[a-zA-Z0-9_]{3,20}$", password)) 
 
 #Alexandra did this for 
 #To Generate a hash with a random salt to encrypt emails
@@ -140,6 +151,9 @@ def register():
         password = generate_password_hash(request.form['password'])
         private_key, public_key = generate_rsa_keypair()
         email_salt, hashed_email = hash_with_salt(email)
+
+        if not is_valid_email(email) or not is_valid_username(username):
+            return "Invalid email or username. Please try again."
 
         try:
             conn = sqlite3.connect("chat.db")
