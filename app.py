@@ -20,8 +20,6 @@ app.config.update(
     #constants for account lockout mechanism (Josh)
     MAX_FAILED_ATTEMPTS = 5,    #if user types password wrong 5 times, lockout
     LOCKOUT_DURATION = timedelta(minutes=15),    #lockout lasts 15 mins
-    #To generate the Fernet encryption key
-    ENCRYPTION_KEY = Fernet.generate_key(),
     UPLOAD_FOLDER = 'static/uploads',
     )   
 
@@ -31,7 +29,9 @@ socketio = SocketIO(app)
 active_users = set()
 
 #To generate the Fernet encryption key
-cipher_suite = Fernet(app.config['ENCRYPTION_KEY'])
+encryption_key = Fernet.generate_key()
+cipher_suite = Fernet(encryption_key)
+
 
 #Email and username validation done by Erin -- Ensures that the email and username are valid and secure
 #To validate the email and username
