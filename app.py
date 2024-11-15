@@ -6,6 +6,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from hashlib import sha256
 import sqlite3
 import os
+import re
 from flask import Flask, session, redirect, url_for, request, render_template, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime, timedelta
@@ -23,6 +24,16 @@ LOCKOUT_DURATION = timedelta(minutes=15)    #lockout lasts 15 mins
 #To generate the Fernet encryption key
 encryption_key = Fernet.generate_key()
 cipher_suite = Fernet(encryption_key)
+
+#Email and username validation done by Erin -- Ensures that the email and username are valid and secure
+#To validate the email and username
+def is_valid_email(email):
+    #Accepts basic email format
+    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", email))
+
+def is_valid_username(password):
+    #Accepts numbers, letters and underscores between 3 and 20 characters
+    return bool(re.match(r"^[a-zA-Z0-9_]{3,20}$", password)) 
 
 #Alexandra did this for 
 #To Generate a hash with a random salt to encrypt emails
@@ -56,10 +67,23 @@ def serialize_key(key, private=False):
         )
 
 def store_keys(username, private_key, public_key):
-    with open(f"{username}_private_key.pem", "wb") as private_file:
+    #Folder where the keys will be saved
+    keys_dir = 'keys'  #the folder where keys can be stored
+    if not os.path.exists(keys_dir):
+        os.makedirs(keys_dir)  #create the folder if it does not exist
+
+    #To save the private keys in the folder in vs code
+    private_key_path = os.path.join(keys_dir, f"{username}_private_key.pem")
+    with open(private_key_path, "wb") as private_file:
         private_file.write(serialize_key(private_key, private=True))
-    with open(f"{username}_public_key.pem", "wb") as public_file:
+
+    #To save the private keys in the folder in vs code
+    public_key_path = os.path.join(keys_dir, f"{username}_public_key.pem")
+    with open(public_key_path, "wb") as public_file:
         public_file.write(serialize_key(public_key))
+    
+    print(f"Keys for {username} have been saved to the '{keys_dir}' folder.")
+
 
 #To encrypt and decrypt messages
 def encrypt_message(message):
@@ -155,6 +179,9 @@ def register():
         password = generate_password_hash(request.form['password'])
         private_key, public_key = generate_rsa_keypair()
         email_salt, hashed_email = hash_with_salt(email)
+
+        if not is_valid_email(email) or not is_valid_username(username):
+            return "Invalid email or username. Please try again."
 
         try:
             conn = sqlite3.connect("chat.db")
