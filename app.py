@@ -179,13 +179,16 @@ def init_db():
 def alter_users_table():
     conn = sqlite3.connect("chat.db")
     cursor = conn.cursor()
+    # attempt to add the 'failed_attempts' column to the users table
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0")
     except sqlite3.OperationalError as e:
+        # if an OperationalError occurs, check if its due to the column already existing
         if 'duplicate column name' in str(e):
-            pass        #column already exists
+            pass        #column already exists, do nothing and proceed
         else:
-            raise
+            raise       #if its a different error, re-raise the exception
+    # attempt to add the 'lockout_time' column to the users table
     try:
         cursor.execute("ALTER TABLE users ADD COLUMN lockout_time TIMESTAMP")
     except sqlite3.OperationalError as e:
