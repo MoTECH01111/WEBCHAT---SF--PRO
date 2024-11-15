@@ -6,23 +6,39 @@ from cryptography.hazmat.primitives import serialization, hashes
 from hashlib import sha256
 import sqlite3
 import os
+import re
 from flask import Flask, session, redirect, url_for, request, render_template, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
 from datetime import datetime, timedelta
+from flask_wtf.csrf import CSRFProtect, CSRFError, validate_csrf
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
 
+app.config.update(
+    SECRET_KEY = os.urandom(24),
+    #constants for account lockout mechanism (Josh)
+    MAX_FAILED_ATTEMPTS = 5,    #if user types password wrong 5 times, lockout
+    LOCKOUT_DURATION = timedelta(minutes=15),    #lockout lasts 15 mins
+    #To generate the Fernet encryption key
+    ENCRYPTION_KEY = Fernet.generate_key()
+)
+
+csrf = CSRFProtect(app)
 socketio = SocketIO(app)
 active_users = set()
 
-#constants for account lockout mechanism (Josh)
-MAX_FAILED_ATTEMPTS = 5     #if user types password wrong 5 times, lockout
-LOCKOUT_DURATION = timedelta(minutes=15)    #lockout lasts 15 mins
-
 #To generate the Fernet encryption key
-encryption_key = Fernet.generate_key()
-cipher_suite = Fernet(encryption_key)
+cipher_suite = Fernet(app.config['ENCRYPTION_KEY'])
+
+#Email and username validation done by Erin -- Ensures that the email and username are valid and secure
+#To validate the email and username
+def is_valid_email(email):
+    #Accepts basic email format
+    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", email))
+
+def is_valid_username(password):
+    #Accepts numbers, letters and underscores between 3 and 20 characters
+    return bool(re.match(r"^[a-zA-Z0-9_]{3,20}$", password)) 
 
 #Alexandra did this for 
 #To Generate a hash with a random salt to encrypt emails
@@ -56,10 +72,23 @@ def serialize_key(key, private=False):
         )
 
 def store_keys(username, private_key, public_key):
-    with open(f"{username}_private_key.pem", "wb") as private_file:
+    #Folder where the keys will be saved
+    keys_dir = 'keys'  #the folder where keys can be stored
+    if not os.path.exists(keys_dir):
+        os.makedirs(keys_dir)  #create the folder if it does not exist
+
+    #To save the private keys in the folder in vs code
+    private_key_path = os.path.join(keys_dir, f"{username}_private_key.pem")
+    with open(private_key_path, "wb") as private_file:
         private_file.write(serialize_key(private_key, private=True))
-    with open(f"{username}_public_key.pem", "wb") as public_file:
+
+    #To save the private keys in the folder in vs code
+    public_key_path = os.path.join(keys_dir, f"{username}_public_key.pem")
+    with open(public_key_path, "wb") as public_file:
         public_file.write(serialize_key(public_key))
+    
+    print(f"Keys for {username} have been saved to the '{keys_dir}' folder.")
+
 
 #To encrypt and decrypt messages
 def encrypt_message(message):
@@ -156,6 +185,9 @@ def register():
         private_key, public_key = generate_rsa_keypair()
         email_salt, hashed_email = hash_with_salt(email)
 
+        if not is_valid_email(email) or not is_valid_username(username):
+            return "Invalid email or username. Please try again."
+
         try:
             conn = sqlite3.connect("chat.db")
             cursor = conn.cursor()
@@ -206,9 +238,9 @@ def login():
                 lockout_time = datetime.strptime(lockout_time, '%Y-%m-%d %H:%M:%S.%f')
 
                 #check if account is locked
-                if datetime.now() < lockout_time + LOCKOUT_DURATION:
+                if datetime.now() < lockout_time + (app.config['LOCKOUT_DURATION']):
                     #account is locked
-                    remaining_lockout = (lockout_time + LOCKOUT_DURATION) - datetime.now()
+                    remaining_lockout = (lockout_time + (app.config['LOCKOUT_DURATION'])) - datetime.now()
                     minutes, seconds = divmod(remaining_lockout.total_seconds(), 60)
                     conn.close()
                     return f"Account locked due to multiple failed login attempts. Try again in {int(minutes)} minutes and {int(seconds)} seconds."
@@ -233,15 +265,15 @@ def login():
                         cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
                         conn.commit()
 
-                        if failed_attempts >= MAX_FAILED_ATTEMPTS:
+                        if failed_attempts >= (app.config['MAX_FAILED_ATTEMPTS']):
                             #lock the account
                             lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                             cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
                             conn.commit()
                             conn.close()
-                            return f"Account locked due to multiple failed login attempts. Try again in {LOCKOUT_DURATION} minutes."
+                            return f"Account locked due to multiple failed login attempts. Try again in {(app.config['LOCKOUT_DURATION'])} minutes."
                         else:
-                            attempts_left = MAX_FAILED_ATTEMPTS - failed_attempts
+                            attempts_left = (app.config['MAX_FAILED_ATTEMPTS']) - failed_attempts
                             conn.close()
                             return f"Invalid email or password. {attempts_left} attempts remaining."
                     else:
@@ -263,15 +295,15 @@ def login():
                 cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
                 conn.commit()
 
-                if failed_attempts >= MAX_FAILED_ATTEMPTS:
+                if failed_attempts >= (app.config['MAX_FAILED_ATTEMPTS']):
                     #Lock the account 
                     lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                     cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
                     conn.commit()
                     conn.close()
-                    return f"Account locked due to multiple failed login attempts. Try again in {LOCKOUT_DURATION} minutes."
+                    return f"Account locked due to multiple failed login attempts. Try again in {(app.config['LOCKOUT_DURATION'])} minutes."
                 else: 
-                    attempts_left = MAX_FAILED_ATTEMPTS - failed_attempts
+                    attempts_left = (app.config['MAX_FAILED_ATTEMPTS']) - failed_attempts
                     conn.close()
                     return f"Invalid username or password. {attempts_left} attempts remaining."
 
@@ -377,12 +409,19 @@ allowedExtensions = {'png', 'jpg', 'jpeg', 'gif'}
 uploadFolder = 'static/uploads'
 app.config['uploadFolder'] = uploadFolder
 
+if not os.path.exists(uploadFolder):
+    os.makedirs(uploadFolder)
+
 def allowed_file(filename):
-    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowedExtensions
 
 @app.route('/upload', methods=['POST'])
 def uploadFile():
+    try:
+        validate_csrf(request.form.get('csrf_token'))
+    except Exception as e:
+        return jsonify({"error": "Invalid CSRF token"}), 400
+    
     if 'media' not in request.files:
         return jsonify({'error': 'no file part'}), 400
 
@@ -400,6 +439,10 @@ def uploadFile():
         return jsonify({'url': mediaUrl}), 200
 
     return jsonify({'error': 'invalid file type'}), 400
+
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    return jsonify({"error": "CSRF token missing or invalid"}), 400
 
 
 if __name__ == "__main__":
