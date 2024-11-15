@@ -241,28 +241,32 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # check if the user is already logged in
     if 'username' in session:
         return redirect(url_for('chat'))
 
     if request.method == 'POST':
-        login_input = request.form['login']
+        login_input = request.form['login']     # get login credentials from the form
         password = request.form['password']
 
+        # connect to database
         conn = sqlite3.connect("chat.db")
         cursor = conn.cursor()
+        #retrieve the user record that matches the provided username or email
         cursor.execute("SELECT * FROM users WHERE username = ? OR email = ?", (login_input, login_input))
         user = cursor.fetchone()
 
         if user:   
-            #Josh code
+            #Josh code 
+            # extract user details from the database records
             user_id = user[0]
             username = user[1]
             stored_password = user[2]
             hashed_email = user[3]
-            failed_attempts = user[4] if user[4] else 0
-            lockout_time = user[5]
+            failed_attempts = user[4] if user[4] else 0     # number of failed login attempts
+            lockout_time = user[5]      # timestamp when the account was locked
 
-            #convert lockout_time from string to datetime object if not None
+            #convert lockout_time from string to datetime object, if not None
             if lockout_time:
                 lockout_time = datetime.strptime(lockout_time, '%Y-%m-%d %H:%M:%S.%f')
 
@@ -280,7 +284,7 @@ def login():
                     failed_attempts = 0
                     lockout_time = None
             else:
-                lockout_time = None
+                lockout_time = None     # no lockout_time means the account is not locked
 
 
             if '@' in login_input:
@@ -291,51 +295,56 @@ def login():
                     if not verify_with_salt(email_salt, login_input, user[3]):
                         #email verification failed
                         failed_attempts += 1
+                        # update the failed_attempts count in the database
                         cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
                         conn.commit()
 
                         if failed_attempts >= (app.config['MAX_FAILED_ATTEMPTS']):
-                            #lock the account
+                            #lock the account by setting lockout_time
                             lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                             cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
                             conn.commit()
                             conn.close()
                             return f"Account locked due to multiple failed login attempts. Try again in {(app.config['LOCKOUT_DURATION'])} minutes."
                         else:
+                            # inform user of how many attempts remain
                             attempts_left = (app.config['MAX_FAILED_ATTEMPTS']) - failed_attempts
                             conn.close()
                             return f"Invalid email or password. {attempts_left} attempts remaining."
                     else:
+                        # email verification passed
                         conn.close()
                         return "Invalid email or password."
             
             #verify password
             if check_password_hash(stored_password, password):
                 #successful login
-                session['username'] = username
+                session['username'] = username      #set the session variable
                 #reset failed attempts and lockout time
                 cursor.execute("UPDATE users SET failed_attempts = 0, lockout_time = NULL WHERE id = ?", (user_id,))
                 conn.commit()
                 conn.close()
                 return redirect(url_for('chat'))
             else: 
-                #Password is incorrect
+                #Password is incorrect, increment failed_attempts
                 failed_attempts += 1
                 cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
                 conn.commit()
 
                 if failed_attempts >= (app.config['MAX_FAILED_ATTEMPTS']):
-                    #Lock the account 
+                    #Lock the account by setting lockout_time
                     lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                     cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
                     conn.commit()
                     conn.close()
                     return f"Account locked due to multiple failed login attempts. Try again in {(app.config['LOCKOUT_DURATION'])} minutes."
                 else: 
+                    #inform user of the remaining attempts
                     attempts_left = (app.config['MAX_FAILED_ATTEMPTS']) - failed_attempts
                     conn.close()
                     return f"Invalid username or password. {attempts_left} attempts remaining."
-
+                
+        # close the database connection if user is not found
         conn.close()
         return "Invalid username/email or password."
 
