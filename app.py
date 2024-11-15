@@ -1,3 +1,4 @@
+import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
@@ -5,7 +6,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from hashlib import sha256
 import sqlite3
-import os
 import re
 from flask import Flask, session, redirect, url_for, request, render_template, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -20,8 +20,9 @@ app.config.update(
     MAX_FAILED_ATTEMPTS = 5,    #if user types password wrong 5 times, lockout
     LOCKOUT_DURATION = timedelta(minutes=15),    #lockout lasts 15 mins
     #To generate the Fernet encryption key
-    ENCRYPTION_KEY = Fernet.generate_key()
-)
+    ENCRYPTION_KEY = Fernet.generate_key(),
+    UPLOAD_FOLDER = 'static/uploads',
+    )   
 
 csrf = CSRFProtect(app)
 socketio = SocketIO(app)
@@ -72,23 +73,45 @@ def serialize_key(key, private=False):
         )
 
 def store_keys(username, private_key, public_key):
-    #Folder where the keys will be saved
-    keys_dir = 'keys'  #the folder where keys can be stored
-    if not os.path.exists(keys_dir):
-        os.makedirs(keys_dir)  #create the folder if it does not exist
+    # Get the current directory where the app.py is located
+    app_dir = os.path.dirname(__file__)
 
-    #To save the private keys in the folder in vs code
-    private_key_path = os.path.join(keys_dir, f"{username}_private_key.pem")
+    private_key_path = os.path.join(app_dir, f"{username}_private_key.pem")
+    public_key_path = os.path.join(app_dir, f"{username}_public_key.pem")
+
+    # Write the private key to a file
     with open(private_key_path, "wb") as private_file:
         private_file.write(serialize_key(private_key, private=True))
 
-    #To save the private keys in the folder in vs code
-    public_key_path = os.path.join(keys_dir, f"{username}_public_key.pem")
+    # Write the public key to a file
     with open(public_key_path, "wb") as public_file:
         public_file.write(serialize_key(public_key))
-    
-    print(f"Keys for {username} have been saved to the '{keys_dir}' folder.")
 
+    print(f"Keys for {username} have been saved in the same directory as app.py.")
+
+#To load the keys from the folder
+def load_key(username, key_type):
+    # Get the current directory where the app.py is located
+    app_dir = os.path.dirname(__file__)
+
+    # Define the path to the key
+    key_path = os.path.join(app_dir, f"{username}_{key_type}_key.pem")
+
+    try:
+        # Read the key from the file
+        with open(key_path, "rb") as key_file:
+            key_data = key_file.read()
+        
+        # Load and return the key based on type
+        if key_type == 'private':
+            return serialization.load_pem_private_key(key_data, password=None)
+        elif key_type == 'public':
+            return serialization.load_pem_public_key(key_data)
+        else:
+            raise ValueError("Invalid key type specified. Use 'private' or 'public'.")
+    except FileNotFoundError:
+        print(f"Key file for {username} ({key_type}) not found.")
+        return None
 
 #To encrypt and decrypt messages
 def encrypt_message(message):
@@ -101,9 +124,12 @@ def decrypt_message(encrypted_message):
 def sign_message(private_key_path, message):
     with open(private_key_path, "rb") as key_file:
         private_key = serialization.load_pem_private_key(key_file.read(), password=None)
+
     signature = private_key.sign(
         message.encode(),
-        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH
+            ),
         hashes.SHA256()
     )
     return signature
@@ -113,13 +139,16 @@ def verify_signature(public_key_path, message, signature):
         public_key = serialization.load_pem_public_key(key_file.read())
     try:
         public_key.verify(
-            signature,
+            bytes.fromhex(signature),
             message.encode(),
-            padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()), 
+                salt_length=padding.PSS.MAX_LENGTH
+                ),
             hashes.SHA256()
         )
         return True
-    except Exception:
+    except Exception as e:
         return False
 
 #Database setup connection and database done by Alexandra
@@ -324,6 +353,7 @@ def handle_disconnect():
     username = session.get('username')
     if username and username in active_users:
         active_users.remove(username)
+        leave_room(username)
         emit('update_user_list', list(active_users), broadcast=True)
 
 @app.route('/chat')
@@ -432,7 +462,7 @@ def uploadFile():
 
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        filePath = os.path.join(app.config['uploadFolder'], filename)
+        filePath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filePath)
 
         mediaUrl = url_for('static', filename=f'uploads/{filename}')
