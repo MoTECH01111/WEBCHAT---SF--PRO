@@ -292,6 +292,7 @@ uploadFolder = 'static/uploads'
 app.config['uploadFolder'] = uploadFolder
 
 def allowed_file(filename):
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowedExtensions
 
 @app.route('/upload', methods=['POST'])
