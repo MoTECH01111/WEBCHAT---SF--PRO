@@ -1,4 +1,3 @@
-import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
@@ -6,10 +5,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
 from hashlib import sha256
 import sqlite3
-<<<<<<< Updated upstream
-=======
 import os
->>>>>>> Stashed changes
 import re
 from flask import Flask, session, redirect, url_for, request, render_template, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -19,31 +15,17 @@ from flask_wtf.csrf import CSRFProtect, CSRFError, validate_csrf
 app = Flask(__name__)
 
 app.config.update(
-<<<<<<< Updated upstream
     SECRET_KEY = os.urandom(24),
     #constants for account lockout mechanism (Josh)
     MAX_FAILED_ATTEMPTS = 5,    #if user types password wrong 5 times, lockout
     LOCKOUT_DURATION = timedelta(minutes=15),    #lockout lasts 15 mins
     #To generate the Fernet encryption key
     ENCRYPTION_KEY = Fernet.generate_key(),
-    UPLOAD_FOLDER = 'static/uploads',
-    )   
-
-csrf = CSRFProtect(app)
-socketio = SocketIO(app)
-=======
-    SECRET_KEY = os.urandom(24), #generates a random 24 byte secret key 
-    #constants for account lockout mechanism (Josh)
-    MAX_FAILED_ATTEMPTS = 5,    #if user types password wrong 5 times, lockout
-    LOCKOUT_DURATION = timedelta(minutes=15),    #lockout lasts 15 mins
-    
-    ENCRYPTION_KEY = Fernet.generate_key(), #fernet generated in order to encrypt and decrypt the messages
     UPLOAD_FOLDER ='static/uploads',
 )
 
 csrf = CSRFProtect(app)
-socketio = SocketIO(app, cors_allowed_origin="*",async_mode='eventlet') #allows Cross-Origin Resource Sharing sharing the backend server over a domain - Morris O
->>>>>>> Stashed changes
+socketio = SocketIO(app, cors_allowed_origin="*",async_mode='eventlet')
 active_users = set()
 
 #To generate the Fernet encryption key
@@ -132,11 +114,7 @@ def load_key(username, key_type):
         print(f"Key file for {username} ({key_type}) not found.")
         return None
 
-<<<<<<< Updated upstream
-#To encrypt and decrypt messages
-=======
 #Encrypt and decrypt messages using the cipher_suite key - Morris O
->>>>>>> Stashed changes
 def encrypt_message(message):
     return cipher_suite.encrypt(message.encode()).decode()
 
@@ -233,7 +211,7 @@ def register():
         email = request.form['email']
         #This will get the plain text password from the system
         #(generate_password_hash()) this uses secure hashing algorithm to convert the plain text password
-        password = generate_password_hash(request.form['password']) #when password is entered a hash password is generated -Morris O
+        password = generate_password_hash(request.form['password'])
         private_key, public_key = generate_rsa_keypair()
         email_salt, hashed_email = hash_with_salt(email)
 
@@ -264,32 +242,28 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # check if the user is already logged in
     if 'username' in session:
         return redirect(url_for('chat'))
 
     if request.method == 'POST':
-        login_input = request.form['login']     # get login credentials from the form
+        login_input = request.form['login']
         password = request.form['password']
 
-        # connect to database
         conn = sqlite3.connect("chat.db")
         cursor = conn.cursor()
-        #retrieve the user record that matches the provided username or email
         cursor.execute("SELECT * FROM users WHERE username = ? OR email = ?", (login_input, login_input))
         user = cursor.fetchone()
 
         if user:   
-            #Josh code 
-            # extract user details from the database records
+            #Josh code
             user_id = user[0]
             username = user[1]
             stored_password = user[2]
             hashed_email = user[3]
-            failed_attempts = user[4] if user[4] else 0     # number of failed login attempts
-            lockout_time = user[5]      # timestamp when the account was locked
+            failed_attempts = user[4] if user[4] else 0
+            lockout_time = user[5]
 
-            #convert lockout_time from string to datetime object, if not None
+            #convert lockout_time from string to datetime object if not None
             if lockout_time:
                 lockout_time = datetime.strptime(lockout_time, '%Y-%m-%d %H:%M:%S.%f')
 
@@ -307,7 +281,7 @@ def login():
                     failed_attempts = 0
                     lockout_time = None
             else:
-                lockout_time = None     # no lockout_time means the account is not locked
+                lockout_time = None
 
 
             if '@' in login_input:
@@ -318,99 +292,75 @@ def login():
                     if not verify_with_salt(email_salt, login_input, user[3]):
                         #email verification failed
                         failed_attempts += 1
-                        # update the failed_attempts count in the database
                         cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
                         conn.commit()
 
                         if failed_attempts >= (app.config['MAX_FAILED_ATTEMPTS']):
-<<<<<<< Updated upstream
-                            #lock the account by setting lockout_time
-=======
                             #lock the account
->>>>>>> Stashed changes
                             lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                             cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
                             conn.commit()
                             conn.close()
                             return f"Account locked due to multiple failed login attempts. Try again in {(app.config['LOCKOUT_DURATION'])} minutes."
                         else:
-<<<<<<< Updated upstream
-                            # inform user of how many attempts remain
-=======
->>>>>>> Stashed changes
                             attempts_left = (app.config['MAX_FAILED_ATTEMPTS']) - failed_attempts
                             conn.close()
                             return f"Invalid email or password. {attempts_left} attempts remaining."
                     else:
-                        # email verification passed
                         conn.close()
                         return "Invalid email or password."
             
             #verify password
             if check_password_hash(stored_password, password):
                 #successful login
-                session['username'] = username      #set the session variable
+                session['username'] = username
                 #reset failed attempts and lockout time
                 cursor.execute("UPDATE users SET failed_attempts = 0, lockout_time = NULL WHERE id = ?", (user_id,))
                 conn.commit()
                 conn.close()
                 return redirect(url_for('chat'))
             else: 
-                #Password is incorrect, increment failed_attempts
+                #Password is incorrect
                 failed_attempts += 1
                 cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
                 conn.commit()
 
                 if failed_attempts >= (app.config['MAX_FAILED_ATTEMPTS']):
-<<<<<<< Updated upstream
-                    #Lock the account by setting lockout_time
-=======
                     #Lock the account 
->>>>>>> Stashed changes
                     lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
                     cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
                     conn.commit()
                     conn.close()
                     return f"Account locked due to multiple failed login attempts. Try again in {(app.config['LOCKOUT_DURATION'])} minutes."
                 else: 
-<<<<<<< Updated upstream
-                    #inform user of the remaining attempts
-=======
->>>>>>> Stashed changes
                     attempts_left = (app.config['MAX_FAILED_ATTEMPTS']) - failed_attempts
                     conn.close()
                     return f"Invalid username or password. {attempts_left} attempts remaining."
-                
-        # close the database connection if user is not found
+
         conn.close()
         return "Invalid username/email or password."
 
     return render_template('login.html')
 
-#--Morris Code 
+
 @socketio.on('join')
 def handle_join():
-    username = session.get('username')  # Retrieve username from flask session data 
+    username = session.get('username')  # Retrieve username from session data
     if not username:
         emit('error', {'message': 'User not logged in.'})
-        return #error is prompt if user is not logged in
+        return
     
-    active_users.add(username) #user is added onto the active list
+    active_users.add(username)
     join_room(username)  # Join user-specific room
     emit('update_user_list', list(active_users), broadcast=True)
 
-#--Morris Code 
+
 @socketio.on('disconnect')
 def handle_disconnect():
-    username = session.get('username') #Gets user session
+    username = session.get('username')
     if username and username in active_users:
-<<<<<<< Updated upstream
         active_users.remove(username)
         leave_room(username)
-=======
-        active_users.remove(username) #removes users from active list
-        leave_room(username) #user leaves room 
->>>>>>> Stashed changes
         emit('update_user_list', list(active_users), broadcast=True)
 
 @app.route('/chat')
@@ -421,14 +371,13 @@ def chat():
     username = session['username']
     return render_template('chat.html', username=username, active_users=list(active_users))
 
-#Morris , Alex and Erin
 @socketio.on('send_message')
 def handle_message(data):
     # Check if the user is logged in
     sender = session.get('username')
     if not sender:
         emit('error', {'message': 'You must be logged in to send messages.'})
-        return  # Returned early if the user is not logged in
+        return  # Return early if not logged in
 
     receiver = data['receiver']
     message = data['message']
@@ -439,7 +388,7 @@ def handle_message(data):
     signature = sign_message(private_key_path, message)
     encrypted_message = encrypt_message(message)
 
-    #To save the messages from sender to reciever and digital signature to the database
+    #To save the messages to the database
     conn = sqlite3.connect("chat.db")
     cursor = conn.cursor()
     cursor.execute("INSERT INTO messages (sender, receiver, message, signature) VALUES (?, ?, ?, ?)",
@@ -447,7 +396,7 @@ def handle_message(data):
     conn.commit()
     conn.close()
 
-    # Sends the message  to the receiver
+    # Emit the message to the receiver
     emit('new_message', {
         'sender': sender,
         'message': decrypt_message(encrypted_message),
@@ -500,8 +449,6 @@ app.config['uploadFolder'] = uploadFolder
 if not os.path.exists(uploadFolder):
     os.makedirs(uploadFolder)
 
-<<<<<<< Updated upstream
-=======
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowedExtensions
 
@@ -513,7 +460,6 @@ app.config['uploadFolder'] = uploadFolder
 if not os.path.exists(uploadFolder):
     os.makedirs(uploadFolder)
 
->>>>>>> Stashed changes
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowedExtensions
 
@@ -550,7 +496,7 @@ def handle_csrf_error(e):
 if __name__ == "__main__":
     init_db()
     alter_users_table()
-    socketio.run(app, host='192.168.0.25', port=5050, debug=True) #To be able to host this on the same netwrork and different devices find the Ipv4 of your device
+    socketio.run(app, host='192.168.0.23', port=5050, debug=True) #To be able to host this on the same netwrork and different devices find the Ipv4 of your device
     #Run the application on the host with the lowest last digit and then on second device run the app.py file you will see accepted on both devices 
-    #Page loads up on on 192.168.0.23 - which accepts the 192.168.0.25 connection use 192.168.0.23 on both devices Morris O.
+    #Page loads up on on 192.168.0.23 - which accepts the 192.168.0.25 connection use 192.168.0.23 on both devices.
     
