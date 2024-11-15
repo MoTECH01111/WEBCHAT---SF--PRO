@@ -8,12 +8,17 @@ import sqlite3
 import os
 from flask import Flask, session, redirect, url_for, request, render_template, jsonify
 from flask_socketio import SocketIO, emit, join_room, leave_room
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 socketio = SocketIO(app)
 active_users = set()
+
+#constants for account lockout mechanism (Josh)
+MAX_FAILED_ATTEMPTS = 5     #if user types password wrong 5 times, lockout
+LOCKOUT_DURATION = timedelta(minutes=15)    #lockout lasts 15 mins
 
 #To generate the Fernet encryption key
 encryption_key = Fernet.generate_key()
@@ -96,7 +101,9 @@ def init_db():
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT UNIQUE NOT NULL,
                     password TEXT NOT NULL,
-                    email TEXT UNIQUE NOT NULL)''')
+                    email TEXT UNIQUE NOT NULL,
+                    failed_attempts INTEGER DEFAULT 0,
+                    lockout_time TIMESTAMP)''')
 
     cursor.execute('''CREATE TABLE IF NOT EXISTS messages (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,6 +114,27 @@ def init_db():
     cursor.execute('''CREATE TABLE IF NOT EXISTS user_salts (
                         username TEXT PRIMARY KEY,
                         email_salt TEXT NOT NULL)''')
+    conn.commit()
+    conn.close()
+
+#function to add necessary columns for lockout mechanism to database - Josh
+def alter_users_table():
+    conn = sqlite3.connect("chat.db")
+    cursor = conn.cursor()
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN failed_attempts INTEGER DEFAULT 0")
+    except sqlite3.OperationalError as e:
+        if 'duplicate column name' in str(e):
+            pass        #column already exists
+        else:
+            raise
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN lockout_time TIMESTAMP")
+    except sqlite3.OperationalError as e:
+        if 'duplicate column name' in str(e):
+            pass    #column already exists
+        else:
+            raise
     conn.commit()
     conn.close()
 
@@ -164,17 +192,88 @@ def login():
         cursor.execute("SELECT * FROM users WHERE username = ? OR email = ?", (login_input, login_input))
         user = cursor.fetchone()
 
-        if user:
+        if user:   
+            #Josh code
+            user_id = user[0]
+            username = user[1]
+            stored_password = user[2]
+            hashed_email = user[3]
+            failed_attempts = user[4] if user[4] else 0
+            lockout_time = user[5]
+
+            #convert lockout_time from string to datetime object if not None
+            if lockout_time:
+                lockout_time = datetime.strptime(lockout_time, '%Y-%m-%d %H:%M:%S.%f')
+
+                #check if account is locked
+                if datetime.now() < lockout_time + LOCKOUT_DURATION:
+                    #account is locked
+                    remaining_lockout = (lockout_time + LOCKOUT_DURATION) - datetime.now()
+                    minutes, seconds = divmod(remaining_lockout.total_seconds(), 60)
+                    conn.close()
+                    return f"Account locked due to multiple failed login attempts. Try again in {int(minutes)} minutes and {int(seconds)} seconds."
+                else:
+                    #lockout duration has passed, so reset lockout_time and failed_attempts
+                    cursor.execute("UPDATE users SET failed_attempts = 0, lockout_time = NULL WHERE id = ?", (user_id,))
+                    conn.commit()
+                    failed_attempts = 0
+                    lockout_time = None
+            else:
+                lockout_time = None
+
+
             if '@' in login_input:
                 cursor.execute("SELECT email_salt FROM user_salts WHERE username = ?", (user[1],))#added by Alexandra
                 salt_row = cursor.fetchone()
                 if salt_row:
                     email_salt = bytes.fromhex(salt_row[0])
                     if not verify_with_salt(email_salt, login_input, user[3]):
+                        #email verification failed
+                        failed_attempts += 1
+                        cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
+                        conn.commit()
+
+                        if failed_attempts >= MAX_FAILED_ATTEMPTS:
+                            #lock the account
+                            lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                            cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
+                            conn.commit()
+                            conn.close()
+                            return f"Account locked due to multiple failed login attempts. Try again in {LOCKOUT_DURATION} minutes."
+                        else:
+                            attempts_left = MAX_FAILED_ATTEMPTS - failed_attempts
+                            conn.close()
+                            return f"Invalid email or password. {attempts_left} attempts remaining."
+                    else:
+                        conn.close()
                         return "Invalid email or password."
-            if check_password_hash(user[2], password):
-                session['username'] = user[1]
+            
+            #verify password
+            if check_password_hash(stored_password, password):
+                #successful login
+                session['username'] = username
+                #reset failed attempts and lockout time
+                cursor.execute("UPDATE users SET failed_attempts = 0, lockout_time = NULL WHERE id = ?", (user_id,))
+                conn.commit()
+                conn.close()
                 return redirect(url_for('chat'))
+            else: 
+                #Password is incorrect
+                failed_attempts += 1
+                cursor.execute("UPDATE users SET failed_attempts = ? WHERE id = ?", (failed_attempts, user_id))
+                conn.commit()
+
+                if failed_attempts >= MAX_FAILED_ATTEMPTS:
+                    #Lock the account 
+                    lockout_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+                    cursor.execute("UPDATE users SET lockout_time = ? WHERE id = ?", (lockout_time_str, user_id))
+                    conn.commit()
+                    conn.close()
+                    return f"Account locked due to multiple failed login attempts. Try again in {LOCKOUT_DURATION} minutes."
+                else: 
+                    attempts_left = MAX_FAILED_ATTEMPTS - failed_attempts
+                    conn.close()
+                    return f"Invalid username or password. {attempts_left} attempts remaining."
 
         conn.close()
         return "Invalid username/email or password."
@@ -305,6 +404,7 @@ def uploadFile():
 
 if __name__ == "__main__":
     init_db()
+    alter_users_table()
     socketio.run(app, debug=True)
 
     
