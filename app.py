@@ -25,10 +25,10 @@ app.config.update(
 
 # Initialize the CSRF protection done by Erin
 csrf = CSRFProtect(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app,cors_allowed_origin="*",async_mode='eventlet')
 active_users = set()
 
-#To generate the Fernet encryption key
+#To generate the Fernet encryption key - Morris O
 encryption_key = Fernet.generate_key()
 cipher_suite = Fernet(encryption_key)
 
@@ -115,7 +115,7 @@ def load_key(username, key_type):
         print(f"Key file for {username} ({key_type}) not found.")
         return None
 
-#To encrypt and decrypt messages
+#To encrypt and decrypt messages - Morris O 
 def encrypt_message(message):
     return cipher_suite.encrypt(message.encode()).decode()
 
@@ -215,7 +215,7 @@ def register():
         email = request.form['email']
         #This will get the plain text password from the system
         #(generate_password_hash()) this uses secure hashing algorithm to convert the plain text password
-        password = generate_password_hash(request.form['password'])
+        password = generate_password_hash(request.form['password']) #The code is used to hash the password - Morris O
         private_key, public_key = generate_rsa_keypair()
         email_salt, hashed_email = hash_with_salt(email)
 
@@ -355,6 +355,7 @@ def login():
 
     return render_template('login.html')
 
+#Morris O code is used to allow user to join the room
 @socketio.on('join')
 def handle_join(username):
     active_users.add(username)
@@ -362,6 +363,7 @@ def handle_join(username):
     join_room(username)
     emit('update_user_list', list(active_users), broadcast=True)
 
+#Morris O code is used to disconnect user from the room
 @socketio.on('disconnect')
 def handle_disconnect():
     username = session.get('username')
