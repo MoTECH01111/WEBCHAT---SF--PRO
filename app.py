@@ -23,7 +23,7 @@ app.config.update(
     UPLOAD_FOLDER = 'static/uploads',
     )   
 
-# Initialize the CSRF protection
+# Initialize the CSRF protection done by Erin
 csrf = CSRFProtect(app)
 socketio = SocketIO(app)
 active_users = set()
