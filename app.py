@@ -81,7 +81,7 @@ def store_keys(username, private_key, public_key):
     private_key_path = os.path.join(app_dir, f"{username}_private_key.pem")
     public_key_path = os.path.join(app_dir, f"{username}_public_key.pem")
 
-    # Write the private key to a file
+    # Write the private key to a file test
     with open(private_key_path, "wb") as private_file:
         private_file.write(serialize_key(private_key, private=True))
 
